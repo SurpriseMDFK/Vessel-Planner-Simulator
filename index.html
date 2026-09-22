@@ -3,30 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vessel Planner Simulator</title>
+    <title>Vessel Planner Pro Simulator</title>
     <style>
         :root {
-            --bg-dark: #1e1e2f;
-            --panel-bg: #2a2a40;
-            --text-main: #ffffff;
+            --bg-dark: #1a1a2e;
+            --panel-bg: #16213e;
+            --text-main: #e94560;
+            --text-light: #ffffff;
             --p1-color: #FF9F1C; /* 先卸貨港口 */
             --p2-color: #2EC4B6; /* 後卸貨港口 */
-            --accent: #E71D36;
+            --accent: #e94560;
+            --success: #4ECDC4;
         }
         
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
 
         body {
-            margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-dark);
-            color: var(--text-main);
+            color: var(--text-light);
             overflow: hidden;
-            touch-action: manipulation; /* 防止手機點擊放大 */
+            touch-action: manipulation;
         }
 
         .screen {
@@ -35,66 +32,72 @@
             height: 100vh;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            justify-content: flex-start;
+            padding: 20px 10px;
+            overflow-y: auto;
         }
 
-        .screen.active {
-            display: flex;
-        }
+        .screen.active { display: flex; }
 
-        h1, h2, h3 { margin: 10px 0; text-align: center; }
+        h1, h2, h3 { text-align: center; margin-bottom: 15px; color: var(--success); }
         
         button {
-            background-color: #4ECDC4;
+            background-color: var(--success);
             color: #1a1a2e;
             border: none;
-            padding: 15px 30px;
-            font-size: 1.2rem;
+            padding: 15px;
+            font-size: 1.1rem;
             font-weight: bold;
             border-radius: 8px;
-            margin: 10px;
+            margin: 10px 0;
             cursor: pointer;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
             transition: transform 0.1s;
         }
         button:active { transform: scale(0.95); }
         button.danger { background-color: var(--accent); color: white; }
+        button:disabled { background-color: #555; color: #888; cursor: not-allowed; transform: none; box-shadow: none;}
 
         /* --- 遊戲主畫面 --- */
         #game-header {
             width: 100%;
-            max-width: 500px;
+            max-width: 400px;
             display: flex;
             justify-content: space-between;
             background: var(--panel-bg);
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 10px;
+            font-size: 1.2rem;
             font-weight: bold;
         }
 
         #status-message {
+            width: 100%;
+            max-width: 400px;
             height: 24px;
             color: #FF9F1C;
             font-weight: bold;
-            margin-bottom: 5px;
             text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
         }
 
         /* 船體 Grid */
         #ship-container {
             width: 100%;
             max-width: 400px;
-            height: 45vh;
+            height: 35vh;
             background: #457B9D;
-            border: 4px solid #1d3557;
+            border: 4px solid #0f2038;
             border-top: none;
-            border-radius: 0 0 20px 20px;
+            border-radius: 0 0 15px 15px;
             display: flex;
             padding: 5px;
             gap: 5px;
-            position: relative;
+            margin-bottom: 15px;
         }
 
         .column {
@@ -103,18 +106,50 @@
             display: flex;
             flex-direction: column-reverse; /* 貨櫃從底部堆疊 */
             justify-content: flex-start;
-            gap: 2px;
-            padding: 2px;
+            gap: 4px;
+            padding: 4px;
             border-radius: 4px;
             cursor: pointer;
+            border: 1px dashed transparent;
+        }
+        .column:active { background: rgba(255,255,255,0.2); }
+
+        /* 候選區 */
+        .section-title { width: 100%; max-width: 400px; font-size: 0.9rem; color: #888; margin-bottom: 5px; }
+        #pool-container {
+            width: 100%;
+            max-width: 400px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 5px;
+            background: var(--panel-bg);
+            padding: 10px;
+            border-radius: 10px;
+            height: 30vh;
         }
 
-        .column:hover { background: rgba(255,255,255,0.2); }
+        .pool-slot {
+            background: rgba(0,0,0,0.3);
+            border: 1px dashed #555;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .pool-slot.selected {
+            border: 2px solid var(--success);
+            background: rgba(78, 205, 196, 0.2);
+            transform: scale(1.05);
+        }
 
         /* 貨櫃樣式 */
         .cargo {
             width: 100%;
-            height: 18%; /* 支援 5 層 */
+            height: 100%;
             border-radius: 4px;
             display: flex;
             flex-direction: column;
@@ -123,241 +158,196 @@
             color: #111;
             font-size: 0.8rem;
             font-weight: bold;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
-            border: 1px solid #333;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
+            border: 1px solid #222;
         }
 
         .cargo .icon { font-size: 1.1rem; }
-
         .port-p1 { background-color: var(--p1-color); }
         .port-p2 { background-color: var(--p2-color); }
 
-        /* 候選區 */
-        #queue-container {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            justify-content: space-around;
-            background: var(--panel-bg);
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-
-        .queue-slot {
-            width: 28%;
-            height: 60px;
-            border: 2px dashed #666;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .queue-slot.selected {
-            border: 3px solid #F1FAEE;
-            transform: scale(1.05);
-            box-shadow: 0 0 10px rgba(255,255,255,0.5);
-        }
-
-        /* 教學區 & 薪資條 */
+        /* 教學區 & 報告區 */
         .info-box {
             background: var(--panel-bg);
             padding: 20px;
             border-radius: 10px;
-            max-width: 500px;
+            max-width: 400px;
+            width: 100%;
             line-height: 1.6;
+            margin-bottom: 15px;
         }
-        .info-box ul { padding-left: 20px; }
-        .salary-row { display: flex; justify-content: space-between; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;}
-        .total-row { font-size: 1.5rem; color: #4ECDC4; font-weight: bold; border-top: 2px solid white; padding-top: 10px; margin-top: 10px;}
-
-        /* 動畫 */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .shake { animation: shake 0.3s; border: 2px solid red !important; }
+        .info-box ul { padding-left: 20px; margin-bottom: 10px;}
         
-        .floating-text {
-            position: absolute;
-            color: #4ECDC4;
-            font-weight: bold;
-            font-size: 1.5rem;
-            pointer-events: none;
-            animation: floatUp 1s ease-out forwards;
-        }
-        @keyframes floatUp {
-            0% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-50px); }
-        }
+        .report-ship { border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 10px; }
+        .report-ship h4 { color: var(--p1-color); margin-bottom: 5px; text-align: left;}
+        .report-error { color: var(--accent); font-size: 0.9rem;}
+        .report-ok { color: var(--success); font-size: 0.9rem;}
+
+        .salary-row { display: flex; justify-content: space-between; margin: 10px 0; border-bottom: 1px solid #444; padding-bottom: 5px;}
+        .total-row { font-size: 1.4rem; color: var(--success); font-weight: bold; border-top: 2px solid white; padding-top: 10px; margin-top: 10px;}
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+        .blinking { animation: blink 1s linear infinite; }
     </style>
 </head>
 <body>
 
-    <!-- 標題畫面 -->
-    <div id="start-screen" class="screen active">
-        <h1>⚓ Vessel Planner Simulator</h1>
-        <p>體驗港口貨櫃策劃員的高壓日常！</p>
-        <button onclick="showScreen('tutorial-screen')">開始職前訓練 (教學)</button>
-    </div>
-
-    <!-- 教學畫面 -->
-    <div id="tutorial-screen" class="screen">
-        <h2>📋 作業流程與規範</h2>
+    <!-- 標題與教學 -->
+    <div id="start-screen" class="screen active" style="justify-content: center;">
+        <h1>⚓ Vessel Planner PRO</h1>
+        <p style="margin-bottom: 20px; color: #aaa;">專業船舶策劃員模擬器</p>
         <div class="info-box">
-            <p>身為策劃員，你的職責是將貨櫃安排到船艙內，並確保航行安全與卸貨效率。</p>
-            <h3>⚠️ 兩大裝載禁忌：</h3>
+            <h3 style="color: var(--p1-color)">📋 作業規範升級</h3>
             <ul>
-                <li><strong>重量禁忌：</strong>重櫃 🪨 不能壓在輕櫃 🎈 上面，否則底層會被壓壞！</li>
-                <li><strong>卸貨禁忌：</strong>後卸貨(P2) 不能壓在 先卸貨(P1) 上面，否則船抵達第一港口時，底下的貨櫃會拿不出來！</li>
+                <li><strong>沙盤推演：</strong>貨櫃將一次列在待選區。點擊貨櫃，再點擊船艙放入。</li>
+                <li><strong>退回重排：</strong>若排錯，點擊船艙最上方的貨櫃，即可將其退回待選區 (不扣錢)。</li>
+                <li><strong>延遲審查：</strong>遊戲過程中不會提示錯誤。你必須排滿整艘船並點擊「送出 Load Sheet」，下班後主管才會一併清算失誤！</li>
             </ul>
-            <h3>🎮 操作方式：</h3>
-            <p>1. 點選下方候選區的貨櫃。<br>
-               2. 點選船隻的任一「直排」，貨櫃會受地心引力掉到該排最底層。<br>
-               3. 遇到無法放置的爛牌，可選擇「退回貨櫃」但會扣薪水。<br>
-               4. 完美裝滿一艘船將獲得高額獎金！</p>
+            <h3 style="color: var(--accent)">⚠️ 兩大裝載禁忌 (結算時抓錯)</h3>
+            <ul>
+                <li><strong>壓毀：</strong>重櫃 🪨 不能放在 輕櫃 🎈 的<strong>任何正上方位置</strong>。</li>
+                <li><strong>阻塞：</strong>後卸貨(P2) 不能放在 先卸貨(P1) 的<strong>任何正上方位置</strong>。</li>
+            </ul>
         </div>
-        <button onclick="startGame()">打卡上班 (開始遊戲)</button>
+        <button onclick="startGame()">打卡上班 (限時 3 分鐘)</button>
     </div>
 
     <!-- 遊戲畫面 -->
     <div id="game-screen" class="screen">
         <div id="game-header">
-            <div>⏱️ <span id="ui-time">02:00</span></div>
-            <div>🎯 <span id="ui-acc">100%</span></div>
-            <div>💰 $<span id="ui-score">1000</span></div>
+            <div>⏱️ <span id="ui-time" class="blinking">03:00</span></div>
+            <div>🚢 已送出艙單: <span id="ui-ships">0</span></div>
         </div>
-        <div id="status-message">歡迎上工！請選擇貨櫃。</div>
+        <div id="status-message">點擊待選區貨櫃，再點擊船艙直排放入。</div>
         
         <div id="ship-container">
-            <div class="column" onclick="placeCargo(0)"></div>
-            <div class="column" onclick="placeCargo(1)"></div>
-            <div class="column" onclick="placeCargo(2)"></div>
-            <div class="column" onclick="placeCargo(3)"></div>
+            <div class="column" onclick="handleShipClick(0)"></div>
+            <div class="column" onclick="handleShipClick(1)"></div>
+            <div class="column" onclick="handleShipClick(2)"></div>
+            <div class="column" onclick="handleShipClick(3)"></div>
         </div>
 
-        <div id="queue-container">
-            <div class="queue-slot" onclick="selectCargo(0)" id="slot-0"></div>
-            <div class="queue-slot" onclick="selectCargo(1)" id="slot-1"></div>
-            <div class="queue-slot" onclick="selectCargo(2)" id="slot-2"></div>
+        <div class="section-title">📦 待排貨櫃區 (點擊選取)</div>
+        <div id="pool-container">
+            <!-- 16個位置由 JS 產生 -->
         </div>
 
-        <button class="danger" onclick="trashCargo()" style="width:100%; max-width:400px; padding: 10px;">🗑️ 退回選中的貨櫃 (-$100)</button>
+        <button id="btn-submit" onclick="submitLoadSheet()">📤 送出 Load Sheet (換下一艘)</button>
     </div>
 
-    <!-- 結束畫面 (薪資條) -->
-    <div id="end-screen" class="screen">
-        <h2>🧾 班表結束：薪資結算表</h2>
-        <div class="info-box" style="width: 100%;">
+    <!-- 分析報告畫面 -->
+    <div id="analysis-screen" class="screen" style="justify-content: flex-start;">
+        <h2>📝 班表結束：主管查核報告</h2>
+        <div class="info-box" id="analysis-log" style="flex: 1; overflow-y: auto;">
+            <!-- 報告內容由 JS 產生 -->
+        </div>
+        <button onclick="showScreen('end-screen')">💵 查看最終薪資單</button>
+    </div>
+
+    <!-- 薪資結算畫面 -->
+    <div id="end-screen" class="screen" style="justify-content: center;">
+        <h2>🧾 薪資結算表 (Payslip)</h2>
+        <div class="info-box">
             <div class="salary-row"><span>底薪 (Base Salary)</span><span>$1,000</span></div>
-            <div class="salary-row"><span>貨櫃裝載獎金 (<span id="end-placed">0</span> x $50)</span><span id="end-placed-score">$0</span></div>
-            <div class="salary-row"><span>完船獎金 (<span id="end-ships">0</span> 艘 x $2000)</span><span id="end-ship-score">$0</span></div>
-            <div class="salary-row" style="color: var(--accent);"><span>作業失誤扣薪 (<span id="end-errors">0</span> 次)</span><span id="end-error-score">-$0</span></div>
-            <div class="salary-row"><span>準確率加給 (>90% +$500)</span><span id="end-acc-bonus">$0</span></div>
+            <div class="salary-row"><span>排船獎金 (<span id="end-ships">0</span> 艘 x $2000)</span><span id="end-ship-score">$0</span></div>
+            <div class="salary-row" style="color: var(--accent);"><span>重大工安/延誤罰款 (<span id="end-errors">0</span> 次)</span><span id="end-error-score">-$0</span></div>
             <div class="total-row salary-row"><span>實發薪資 (Total Pay)</span><span id="end-total">$0</span></div>
-            <h3 id="end-rank" style="margin-top: 20px; color: #F1FAEE;">職級評等：實習生</h3>
+            <h3 id="end-rank" style="margin-top: 20px;">職級評等：實習生</h3>
         </div>
         <button onclick="location.reload()">重新開始下個班表</button>
     </div>
 
     <script>
-        // --- 遊戲狀態與參數 ---
-        const SHIFT_TIME = 120; // 班表時間 120 秒
+        // --- 系統常數與狀態 ---
+        const SHIFT_TIME = 180; // 3分鐘
         const COLS = 4;
-        const ROWS = 5;
-        
+        const ROWS = 4;
+        const TOTAL_CARGO = COLS * ROWS; // 16
+
         let timer;
         let timeLeft = SHIFT_TIME;
-        let score = 1000; // 底薪 1000
-        let placedCount = 0;
-        let errorCount = 0;
-        let shipCompletedCount = 0;
         
-        let shipGrid = [[], [], [], []]; // 4 直排
-        let cargoQueue = [];
-        let selectedIndex = 0; // 預設選擇第一個
+        let currentPool = []; // 存放 16 個貨櫃或 null
+        let currentShip = [[], [], [], []]; // 4排直欄
+        let submittedShips = []; // 存放已送出的船隻資料
+        let selectedPoolIndex = -1; // 當前選中的待選區貨櫃 index
 
-        // --- 核心資料結構 ---
-        // Port: 'P1'(先卸), 'P2'(後卸)
-        // Weight: 'H'(重櫃), 'L'(輕櫃)
+        // --- 核心資料 ---
         const CARGO_TYPES = [
-            { port: 'P1', weight: 'H', desc: 'P1/重' },
-            { port: 'P1', weight: 'L', desc: 'P1/輕' },
-            { port: 'P2', weight: 'H', desc: 'P2/重' },
-            { port: 'P2', weight: 'L', desc: 'P2/輕' }
+            { port: 'P1', weight: 'H' },
+            { port: 'P1', weight: 'L' },
+            { port: 'P2', weight: 'H' },
+            { port: 'P2', weight: 'L' }
         ];
 
-        // --- 系統控制 ---
+        // --- 畫面控制 ---
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
+        // --- 遊戲初始化 ---
         function startGame() {
             showScreen('game-screen');
-            shipGrid = [[], [], [], []];
-            cargoQueue = [generateCargo(), generateCargo(), generateCargo()];
-            selectedIndex = 0;
+            submittedShips = [];
             timeLeft = SHIFT_TIME;
-            score = 1000;
-            placedCount = 0;
-            errorCount = 0;
-            shipCompletedCount = 0;
             
-            updateUI();
-            renderQueue();
-            renderShip();
+            initNewShip();
+            updateHeader();
             
             timer = setInterval(() => {
                 timeLeft--;
-                updateUI();
+                updateHeader();
                 if (timeLeft <= 0) endGame();
             }, 1000);
         }
 
-        function generateCargo() {
-            // 隨機產生一個貨櫃
-            const rand = Math.floor(Math.random() * CARGO_TYPES.length);
-            return { ...CARGO_TYPES[rand] };
-        }
+        function initNewShip() {
+            currentPool = [];
+            currentShip = [[], [], [], []];
+            selectedPoolIndex = -1;
 
-        function formatTime(sec) {
-            let m = Math.floor(sec / 60).toString().padStart(2, '0');
-            let s = (sec % 60).toString().padStart(2, '0');
-            return `${m}:${s}`;
-        }
-
-        function getAccuracy() {
-            if (placedCount + errorCount === 0) return 100;
-            return Math.round((placedCount / (placedCount + errorCount)) * 100);
-        }
-
-        function updateUI() {
-            document.getElementById('ui-time').innerText = formatTime(timeLeft);
-            document.getElementById('ui-acc').innerText = `${getAccuracy()}%`;
-            document.getElementById('ui-score').innerText = score;
-        }
-
-        function setStatus(msg, isError = false) {
-            const el = document.getElementById('status-message');
-            el.innerText = msg;
-            el.style.color = isError ? '#E71D36' : '#FF9F1C';
+            // 產生 16 個隨機貨櫃
+            for (let i = 0; i < TOTAL_CARGO; i++) {
+                const randType = CARGO_TYPES[Math.floor(Math.random() * CARGO_TYPES.length)];
+                currentPool.push({
+                    originalIndex: i, // 記錄原本位置，退回時放回原位
+                    port: randType.port,
+                    weight: randType.weight
+                });
+            }
+            
+            renderPool();
+            renderShip();
+            checkSubmitButton();
+            setStatus("🚢 新船已靠港，請開始排櫃！");
         }
 
         // --- 渲染畫面 ---
-        function renderQueue() {
-            for (let i = 0; i < 3; i++) {
-                const slot = document.getElementById(`slot-${i}`);
-                slot.innerHTML = '';
-                slot.className = 'queue-slot';
-                if (i === selectedIndex) slot.classList.add('selected');
+        function createCargoDOM(cargo) {
+            const div = document.createElement('div');
+            div.className = `cargo port-${cargo.port.toLowerCase()}`;
+            const portText = cargo.port === 'P1' ? '先(P1)' : '後(P2)';
+            const weightIcon = cargo.weight === 'H' ? '🪨重' : '🎈輕';
+            div.innerHTML = `<span class="icon">${weightIcon}</span><span>${portText}</span>`;
+            return div;
+        }
+
+        function renderPool() {
+            const container = document.getElementById('pool-container');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < TOTAL_CARGO; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'pool-slot';
+                if (i === selectedPoolIndex) slot.classList.add('selected');
                 
-                if (cargoQueue[i]) {
-                    slot.appendChild(createCargoDOM(cargoQueue[i]));
+                slot.onclick = () => selectPoolCargo(i);
+                
+                if (currentPool[i]) {
+                    slot.appendChild(createCargoDOM(currentPool[i]));
                 }
+                container.appendChild(slot);
             }
         }
 
@@ -365,160 +355,176 @@
             const columns = document.querySelectorAll('.column');
             columns.forEach((colEl, colIndex) => {
                 colEl.innerHTML = '';
-                // 因為是 flex-direction: column-reverse，陣列前面的會在最底部
-                shipGrid[colIndex].forEach(cargo => {
+                // flex-direction: column-reverse 讓陣列 [0] 顯示在最底部
+                currentShip[colIndex].forEach(cargo => {
                     colEl.appendChild(createCargoDOM(cargo));
                 });
             });
         }
 
-        function createCargoDOM(cargo) {
-            const div = document.createElement('div');
-            div.className = `cargo port-${cargo.port.toLowerCase()}`;
-            
-            const portText = cargo.port === 'P1' ? '先卸(P1)' : '後卸(P2)';
-            const weightIcon = cargo.weight === 'H' ? '🪨 重' : '🎈 輕';
-            
-            div.innerHTML = `<span class="icon">${weightIcon}</span><span>${portText}</span>`;
-            return div;
+        function updateHeader() {
+            let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            let s = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('ui-time').innerText = `${m}:${s}`;
+            document.getElementById('ui-ships').innerText = submittedShips.length;
         }
 
-        // --- 遊戲邏輯 ---
-        function selectCargo(index) {
-            if (!cargoQueue[index]) return;
-            selectedIndex = index;
-            renderQueue();
-            setStatus("請點選船艙直排放入");
+        function setStatus(msg, isWarning = false) {
+            const el = document.getElementById('status-message');
+            el.innerText = msg;
+            el.style.color = isWarning ? 'var(--accent)' : 'var(--p1-color)';
         }
 
-        function trashCargo() {
-            if (!cargoQueue[selectedIndex]) return;
-            score -= 100;
-            errorCount++; // 退回算作一次規劃失誤
-            setStatus("已退回貨櫃！罰款 -$100", true);
-            cargoQueue[selectedIndex] = generateCargo();
-            updateUI();
-            renderQueue();
-        }
-
-        function placeCargo(colIndex) {
-            const cargo = cargoQueue[selectedIndex];
-            if (!cargo) return;
-
-            const col = shipGrid[colIndex];
-            
-            // 檢查高度
-            if (col.length >= ROWS) {
-                setStatus("❌ 該排已經滿了！", true);
-                shakeColumn(colIndex);
-                return;
+        function checkSubmitButton() {
+            // 只有當 pool 全空 (全部排上船) 才能送出
+            const isFinished = currentPool.every(c => c === null);
+            const btn = document.getElementById('btn-submit');
+            if (isFinished) {
+                btn.disabled = false;
+                btn.innerText = "📤 艙單已填滿，送出 Load Sheet！";
+                btn.style.backgroundColor = "var(--success)";
+            } else {
+                btn.disabled = true;
+                btn.innerText = "請將所有貨櫃排上船才能送出";
+                btn.style.backgroundColor = "#555";
             }
+        }
 
-            // 檢查規則 (與下方的貨櫃比較)
-            if (col.length > 0) {
-                const topCargo = col[col.length - 1]; // 下方的貨櫃
-                
-                // 規則 1: 重櫃不能壓輕櫃
-                if (cargo.weight === 'H' && topCargo.weight === 'L') {
-                    handleError("❌ 壓毀警告：重櫃不能壓輕櫃！ (-$100)", colIndex);
+        // --- 互動邏輯 ---
+        function selectPoolCargo(index) {
+            if (!currentPool[index]) return; // 點擊空格沒反應
+            
+            if (selectedPoolIndex === index) {
+                // 重複點擊取消選取
+                selectedPoolIndex = -1;
+            } else {
+                selectedPoolIndex = index;
+            }
+            renderPool();
+            if (selectedPoolIndex !== -1) setStatus("已選取，請點擊船艙直排放入");
+        }
+
+        function handleShipClick(colIndex) {
+            const col = currentShip[colIndex];
+
+            // 狀況 1: 有選取待排貨櫃 -> 嘗試放入船艙
+            if (selectedPoolIndex !== -1) {
+                if (col.length >= ROWS) {
+                    setStatus("❌ 該排已經滿了！無法放入", true);
                     return;
                 }
+                // 將貨櫃移入船艙
+                const cargo = currentPool[selectedPoolIndex];
+                col.push(cargo);
+                currentPool[selectedPoolIndex] = null;
+                selectedPoolIndex = -1; // 清除選取狀態
                 
-                // 規則 2: P2 不能壓在 P1 上面
-                if (cargo.port === 'P2' && topCargo.port === 'P1') {
-                    handleError("❌ 阻塞警告：後卸貨不能壓在先卸貨上！ (-$100)", colIndex);
-                    return;
-                }
+                setStatus("已放入，可隨時點擊船艙貨櫃將其退回");
+            } 
+            // 狀況 2: 未選取貨櫃，但船艙有貨櫃 -> 將最上層貨櫃退回待排區
+            else if (col.length > 0) {
+                const cargo = col.pop();
+                // 根據 originalIndex 放回原位
+                currentPool[cargo.originalIndex] = cargo;
+                setStatus("已將貨櫃退回待選區");
             }
 
-            // 成功放置
-            col.push(cargo);
-            placedCount++;
-            score += 50;
-            setStatus("✅ 裝載成功！ +$50");
-            
-            // 產生新貨櫃補充
-            cargoQueue[selectedIndex] = generateCargo();
-            
-            // 自動選擇下一個有貨櫃的格子
-            if (!cargoQueue[selectedIndex]) {
-                selectedIndex = cargoQueue.findIndex(c => c !== null);
-            }
-
-            updateUI();
             renderShip();
-            renderQueue();
-
-            checkShipComplete();
+            renderPool();
+            checkSubmitButton();
         }
 
-        function handleError(msg, colIndex) {
-            errorCount++;
-            score -= 100;
-            setStatus(msg, true);
-            shakeColumn(colIndex);
-            updateUI();
+        // --- 送出與結算邏輯 ---
+        function submitLoadSheet() {
+            // 深度拷貝當前船隻狀態存入歷史
+            const shipData = JSON.parse(JSON.stringify(currentShip));
+            submittedShips.push(shipData);
+            updateHeader();
+            initNewShip();
         }
 
-        function shakeColumn(colIndex) {
-            const col = document.querySelectorAll('.column')[colIndex];
-            col.classList.remove('shake');
-            void col.offsetWidth; // 觸發 reflow 重新播放動畫
-            col.classList.add('shake');
-        }
-
-        function checkShipComplete() {
-            let totalCargos = 0;
-            shipGrid.forEach(col => totalCargos += col.length);
-            
-            if (totalCargos === COLS * ROWS) {
-                // 完船獎勵
-                shipCompletedCount++;
-                score += 2000;
-                updateUI();
-                setStatus("🚢 貨輪滿載出港！完船獎金 +$2000");
-                
-                // 視覺延遲後換新船
-                setTimeout(() => {
-                    shipGrid = [[], [], [], []];
-                    renderShip();
-                    setStatus("🚢 新貨輪已靠泊，請繼續裝載！");
-                }, 1500);
-            }
-        }
-
-        // --- 結算畫面 ---
         function endGame() {
             clearInterval(timer);
-            showScreen('end-screen');
-            
-            const acc = getAccuracy();
-            const placedBonus = placedCount * 50;
-            const shipBonus = shipCompletedCount * 2000;
-            const errorPenalty = errorCount * 100;
-            let accBonus = acc >= 90 ? 500 : 0;
-            
-            const totalPay = 1000 + placedBonus + shipBonus - errorPenalty + accBonus;
+            setStatus("班表結束！停止作業！", true);
+            setTimeout(() => {
+                showScreen('analysis-screen');
+                generateAnalysis();
+            }, 1000);
+        }
 
-            document.getElementById('end-placed').innerText = placedCount;
-            document.getElementById('end-placed-score').innerText = `+$${placedBonus}`;
+        let totalErrorsCount = 0;
+
+        function generateAnalysis() {
+            const logContainer = document.getElementById('analysis-log');
+            let html = '';
+            totalErrorsCount = 0;
+
+            if (submittedShips.length === 0) {
+                html = '<p class="report-error">❌ 你在班表內連一艘船的艙單都沒送出，主管非常火大！</p>';
+            } else {
+                submittedShips.forEach((ship, sIdx) => {
+                    html += `<div class="report-ship"><h4>🚢 第 ${sIdx + 1} 艘貨輪審查</h4><ul>`;
+                    let shipHasError = false;
+
+                    // 檢查每一排
+                    ship.forEach((col, cIdx) => {
+                        // 從底部(i) 往上與其上方的每一個貨櫃(j)比較
+                        for (let i = 0; i < col.length; i++) {
+                            const bottomCargo = col[i];
+                            for (let j = i + 1; j < col.length; j++) {
+                                const topCargo = col[j];
+                                
+                                // 禁忌 1: 重壓輕
+                                if (bottomCargo.weight === 'L' && topCargo.weight === 'H') {
+                                    html += `<li class="report-error">❌ 嚴重：第 ${cIdx + 1} 排重櫃壓毀了底層輕櫃！</li>`;
+                                    shipHasError = true;
+                                    totalErrorsCount++;
+                                }
+                                
+                                // 禁忌 2: P2 擋住 P1
+                                if (bottomCargo.port === 'P1' && topCargo.port === 'P2') {
+                                    html += `<li class="report-error">❌ 延誤：第 ${cIdx + 1} 排後卸(P2)擋住了底層先卸(P1)！</li>`;
+                                    shipHasError = true;
+                                    totalErrorsCount++;
+                                }
+                            }
+                        }
+                    });
+
+                    if (!shipHasError) {
+                        html += `<li class="report-ok">✅ 規劃完美！符合所有安全與卸貨規範。</li>`;
+                    }
+                    html += `</ul></div>`;
+                });
+            }
+
+            logContainer.innerHTML = html;
+            calculateSalary();
+        }
+
+        function calculateSalary() {
+            const baseSalary = 1000;
+            const shipBonus = submittedShips.length * 2000;
+            const errorPenalty = totalErrorsCount * 250; // 每個失誤扣 250
             
-            document.getElementById('end-ships').innerText = shipCompletedCount;
+            const totalPay = baseSalary + shipBonus - errorPenalty;
+
+            document.getElementById('end-ships').innerText = submittedShips.length;
             document.getElementById('end-ship-score').innerText = `+$${shipBonus}`;
             
-            document.getElementById('end-errors').innerText = errorCount;
+            document.getElementById('end-errors').innerText = totalErrorsCount;
             document.getElementById('end-error-score').innerText = `-$${errorPenalty}`;
             
-            document.getElementById('end-acc-bonus').innerText = `+$${accBonus}`;
             document.getElementById('end-total').innerText = `$${totalPay}`;
 
             let rank = "";
-            if (totalPay < 1500) rank = "🥉 試用期不合格 (Fired)";
-            else if (totalPay < 3500) rank = "🥈 菜鳥策劃員 (Junior Planner)";
-            else if (totalPay < 6000) rank = "🥇 資深策劃員 (Senior Planner)";
+            if (totalPay < 1000) rank = "🥉 試用期不合格 (Fired)";
+            else if (totalPay < 4000) rank = "🥈 菜鳥策劃員 (Junior Planner)";
+            else if (totalPay < 8000) rank = "🥇 資深策劃員 (Senior Planner)";
             else rank = "👑 傳奇首席策劃員 (Legendary Master)";
             
-            document.getElementById('end-rank').innerText = `職級評等：${rank}\n(準確率: ${acc}%)`;
+            document.getElementById('end-rank').innerText = `職級評等：${rank}`;
+            if(totalPay < 1000) document.getElementById('end-rank').style.color = "var(--accent)";
         }
     </script>
 </body>
